@@ -1,6 +1,7 @@
 # Build
 build/
-build-linux/
+build-cuda/
+build-migraphx/
 cmake-build-*/
 out/
 

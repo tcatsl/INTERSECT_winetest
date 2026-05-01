@@ -53,10 +53,35 @@ enum class StemModelDownloadState
     failed,
 };
 
+enum class OrtBundleId
+{
+    linuxX64Cpu = 0,
+    linuxX64Cuda12,
+    linuxX64Cuda13,
+    linuxX64Migraphx,
+    winX64DirectMl,
+    winX64Cpu,
+    macosArm64,
+};
+
+struct OrtBundleCatalogEntry
+{
+    OrtBundleId id = OrtBundleId::linuxX64Cpu;
+    juce::String menuLabel;         // e.g. "NVIDIA CUDA 12"
+    juce::String directoryName;     // folder name under ort/ on disk
+    juce::String providerName;      // "CUDA" / "DML" / "CoreML" / "MIGraphX" / "" for CPU-only
+    juce::String platformTag;       // "linux-x64" / "win-x64" / "macos-arm64"
+    juce::String archiveFileName;   // tarball / zip name
+    juce::String downloadUrl;       // populated by manifest at runtime (blank in built-in catalog)
+    juce::int64  downloadBytes = 0;
+    juce::String libraryFileName;   // primary ORT runtime library file name inside the bundle
+};
+
 struct StemJobResult
 {
     std::vector<juce::File> stemFiles;
     std::vector<StemRole> stemRoles;
+    juce::String warningMessage;
     juce::String errorMessage;
 };
 
@@ -107,6 +132,7 @@ bool stemModelIdFromString (const juce::String& text, StemModelId& modelId);
 juce::String stemModelMenuLabel (StemModelId modelId);
 juce::String stemComputeDeviceToString (StemComputeDevice device);
 StemComputeDevice stemComputeDeviceFromString (const juce::String& text);
+juce::String getAvailableGpuProviderName();
 juce::String stemExportModeToString (StemExportMode mode);
 StemExportMode stemExportModeFromString (const juce::String& text);
 const StemModelCatalogEntry* findStemModelCatalogEntry (StemModelId modelId);
@@ -120,3 +146,45 @@ StemModelCatalogEntry getEffectiveStemModelCatalogEntry (StemModelId modelId, co
 std::vector<StemModelId> scanInstalledStemModels (const juce::File& modelFolder);
 StemSelectionMask stemSelectionBitForIndex (int outputIndex);
 bool isStemOutputSelected (StemSelectionMask mask, int outputIndex);
+
+// ── ONNX Runtime bundle management ──────────────────────────────────────
+//
+// ORT runtimes are not shipped with the plugin. Users download a bundle
+// (CPU-only or GPU-enabled) via the Stem Separation menu. Bundles live in
+// <appdata>/INTERSECT/ort/<directoryName>/<version>/ and the "active"
+// symlink/marker selects which one the plugin loads at runtime.
+
+juce::File getDefaultOrtRootFolder();
+juce::File getOrtActiveMarkerFile (const juce::File& ortRoot);
+juce::File getOrtBundleInstallFolder (const juce::File& ortRoot,
+                                      const OrtBundleCatalogEntry& entry,
+                                      const juce::String& ortVersion);
+
+const std::vector<OrtBundleCatalogEntry>& getOrtBundleCatalog();
+const OrtBundleCatalogEntry* findOrtBundleCatalogEntry (OrtBundleId id);
+
+// Bundles whose platformTag matches the current build.
+std::vector<OrtBundleCatalogEntry> getOrtBundlesForCurrentPlatform();
+
+// Inspect the on-disk bundle directory to see which bundles are installed
+// (i.e. the bundle folder exists and the primary library file is present).
+std::vector<OrtBundleId> scanInstalledOrtBundles (const juce::File& ortRoot);
+
+// Read / write the active bundle marker. Returns an empty optional if no
+// active bundle is set.
+juce::String readActiveOrtBundleDirectoryName (const juce::File& ortRoot);
+bool writeActiveOrtBundleDirectoryName (const juce::File& ortRoot, const juce::String& directoryName);
+
+// Full path to the ORT shared library for the currently active bundle, or
+// an invalid juce::File if no bundle is installed.
+juce::File resolveActiveOrtLibraryFile (const juce::File& ortRoot);
+
+juce::String getCurrentPlatformTag();
+
+juce::String getOrtBundleManifestFileName();
+juce::String getOrtBundleManifestDownloadUrl();
+juce::File   getOrtBundleManifestFile (const juce::File& ortRoot);
+
+// Resolves the effective catalog entry (built-in + overrides from the
+// manifest on disk). Leaves downloadUrl / downloadBytes blank on miss.
+OrtBundleCatalogEntry getEffectiveOrtBundleCatalogEntry (OrtBundleId id, const juce::File& ortRoot);

@@ -375,6 +375,12 @@ IntersectProcessor::IntersectProcessor()
 	    filterEnvReleaseParam = apvts.getRawParameterValue (ParamIds::defaultFilterEnvRelease);
 	    filterEnvAmountParam = apvts.getRawParameterValue (ParamIds::defaultFilterEnvAmount);
 	    uiScaleParam = apvts.getRawParameterValue (ParamIds::uiScale);
+
+    // Download jobs signal completion from their own thread. Coalesced with
+    // stemJob's use of AsyncUpdater; handleAsyncUpdate drains all three.
+    stemModelDownloadJob.onTerminalState = [this] { triggerAsyncUpdate(); };
+    ortBundleDownloadJob.onTerminalState = [this] { triggerAsyncUpdate(); };
+
 	    publishUiSliceSnapshot();
 }
 
@@ -444,6 +450,7 @@ void IntersectProcessor::setUiStatusMessage (const RtText<256>& text,
     status.source = source;
     status.shownAtMs = juce::Time::currentTimeMillis();
     uiStatusMessageIndex.store (writeIndex, std::memory_order_release);
+    uiSnapshotDirty.store (true, std::memory_order_release);
 }
 
 void IntersectProcessor::clearUiStatusMessage()
@@ -486,6 +493,25 @@ const IntersectProcessor::UiStatusMessage& IntersectProcessor::getUiStatusMessag
 void IntersectProcessor::handleAsyncUpdate()
 {
     handleStemJobCompletionOnMessageThread();
+    handleDownloadCompletionsOnMessageThread();
+}
+
+void IntersectProcessor::handleDownloadCompletionsOnMessageThread()
+{
+    // Runs on the message thread, so consumeResultMessage() locking is safe.
+    // No-op for any job not currently in a terminal state.
+    auto drain = [this] (auto& job)
+    {
+        const auto s = job.getState();
+        if (s == StemModelDownloadState::completed)
+            setUiStatusMessage (job.consumeResultMessage(), false);
+        else if (s == StemModelDownloadState::failed
+              || s == StemModelDownloadState::cancelled)
+            setUiStatusMessage (job.consumeResultMessage(), true);
+    };
+
+    drain (stemModelDownloadJob);
+    drain (ortBundleDownloadJob);
 }
 
 void IntersectProcessor::handleStemJobCompletionOnMessageThread()
@@ -513,7 +539,10 @@ void IntersectProcessor::handleStemJobCompletionOnMessageThread()
             delete old;
 
             loadFilesAsync (stemResult.stemFiles, true);
-            setUiStatusMessage ("Stems imported", false);
+            setUiStatusMessage (stemResult.warningMessage.isNotEmpty()
+                                    ? stemResult.warningMessage
+                                    : juce::String ("Stems imported"),
+                                stemResult.warningMessage.isNotEmpty());
             loadStateChanged = true;
         }
     }
@@ -989,6 +1018,63 @@ void IntersectProcessor::cancelStemModelDownload()
     stemModelDownloadJob.cancel();
 }
 
+juce::File IntersectProcessor::getOrtRootFolder() const
+{
+    return getDefaultOrtRootFolder();
+}
+
+std::vector<OrtBundleId> IntersectProcessor::getInstalledOrtBundles() const
+{
+    return scanInstalledOrtBundles (getOrtRootFolder());
+}
+
+juce::String IntersectProcessor::getActiveOrtBundleDirectoryName() const
+{
+    return readActiveOrtBundleDirectoryName (getOrtRootFolder());
+}
+
+bool IntersectProcessor::setActiveOrtBundle (OrtBundleId bundleId)
+{
+    if (const auto* entry = findOrtBundleCatalogEntry (bundleId))
+    {
+        if (writeActiveOrtBundleDirectoryName (getOrtRootFolder(), entry->directoryName))
+        {
+            setUiStatusMessage (juce::String ("Activated ") + entry->menuLabel
+                                + " (restart INTERSECT to use it)", false);
+            return true;
+        }
+    }
+    setUiStatusMessage ("Failed to activate ONNX Runtime bundle", true);
+    return false;
+}
+
+void IntersectProcessor::startOrtBundleDownload (OrtBundleId bundleId)
+{
+    if (ortBundleDownloadJob.getState() == StemModelDownloadState::downloading)
+    {
+        setUiStatusMessage ("ONNX Runtime download already in progress", true);
+        return;
+    }
+
+    if (! ortBundleDownloadJob.start (getOrtRootFolder(), bundleId, INTERSECT_ORT_VERSION))
+    {
+        setUiStatusMessage ("Unable to start ONNX Runtime download", true);
+        return;
+    }
+
+    if (const auto* entry = findOrtBundleCatalogEntry (bundleId))
+        setUiStatusMessage ("Downloading " + entry->menuLabel + "...", false);
+    else
+        setUiStatusMessage ("Downloading ONNX Runtime...", false);
+
+    uiSnapshotDirty.store (true, std::memory_order_release);
+}
+
+void IntersectProcessor::cancelOrtBundleDownload()
+{
+    ortBundleDownloadJob.cancel();
+}
+
 void IntersectProcessor::cancelStemSeparation()
 {
     if (stemJob.getState() != StemJobState::idle)
@@ -1020,6 +1106,15 @@ void IntersectProcessor::startStemSeparation (int sampleId,
     {
         setUiStatusMessage ("Select at least one stem", true);
         return;
+    }
+
+    if (stemComputeDevice == StemComputeDevice::gpu)
+    {
+        if (const auto gpuError = getStemGpuAvailabilityError(); gpuError.isNotEmpty())
+        {
+            setUiStatusMessage (gpuError, true);
+            return;
+        }
     }
 
     auto sampleSnap = sampleData.getSnapshot();
@@ -2962,26 +3057,6 @@ void IntersectProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         }
     }
 
-    // Poll model downloads for completion
-    {
-        const auto downloadState = stemModelDownloadJob.getState();
-        if (downloadState == StemModelDownloadState::completed)
-        {
-            setUiStatusMessage (stemModelDownloadJob.consumeResultMessage(), false);
-            uiSnapshotDirty.store (true, std::memory_order_release);
-        }
-        else if (downloadState == StemModelDownloadState::failed)
-        {
-            setUiStatusMessage (stemModelDownloadJob.consumeResultMessage(), true);
-            uiSnapshotDirty.store (true, std::memory_order_release);
-        }
-        else if (downloadState == StemModelDownloadState::cancelled)
-        {
-            setUiStatusMessage (stemModelDownloadJob.consumeResultMessage(), true);
-            uiSnapshotDirty.store (true, std::memory_order_release);
-        }
-    }
-
     {
         const auto& status = getUiStatusMessage();
         if (status.isWarning
@@ -3245,7 +3320,7 @@ void IntersectProcessor::getStateInformation (juce::MemoryBlock& destData)
 
     // Optional v24 extension block for fields added without changing the base version.
     stream.writeInt (kStateExtensionMagic);
-    stream.writeInt (5);
+    stream.writeInt (6);
     stream.writeInt (numSlices);
     for (int i = 0; i < numSlices; ++i)
         stream.writeInt (sliceManager.getSlice (i).repitchMode);
@@ -3295,6 +3370,8 @@ void IntersectProcessor::getStateInformation (juce::MemoryBlock& destData)
         stream.writeInt (static_cast<int> (meta.role));
         stream.writeBool (meta.isGenerated);
     }
+    // Extension v6: stem compute device preference
+    stream.writeInt (static_cast<int> (stemComputeDevice));
 }
 
 void IntersectProcessor::setStateInformation (const void* data, int sizeInBytes)
@@ -3629,6 +3706,15 @@ void IntersectProcessor::setStateInformation (const void* data, int sizeInBytes)
                             meta.role = static_cast<StemRole> (juce::jlimit (0, 4, roleInt));
                             meta.isGenerated = isGenerated;
                         }
+                    }
+                }
+
+                if (extensionVersion >= 6)
+                {
+                    if (requireBytes (4))
+                    {
+                        const int deviceInt = trialStream.readInt();
+                        stemComputeDevice = static_cast<StemComputeDevice> (juce::jlimit (0, 1, deviceInt));
                     }
                 }
             }

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-04-18
+
+> **Pre-release for testing.** If you try it on Windows DirectML, AMD MIGraphX, Intel macOS, or CoreML on Apple Silicon, please report your OS, GPU, runtime selection, and any issues [issue #31](https://github.com/tucktuckg00se/INTERSECT/issues/31).
+
+### Added
+- GPU-accelerated stem separation via downloadable ONNX Runtime bundles. Open SET > Stem Separation > ONNX Runtime and pick NVIDIA CUDA 12 or 13 / AMD MIGraphX on Linux, DirectML on Windows, or CoreML on macOS. Bundles download into your user data folder; restart INTERSECT after install to use the new runtime.
+
+### Changed
+- Updated the ONNX Runtime this build targets to 1.24.2 on Windows and Linux; macOS stays on 1.23.2 for x64 support.
+- On Intel macs, the stem separation panel now clearly shows that stem separation is not available instead of failing on START.
+
+### Fixed
+- GPU stem separation errors now display in the header status bar instead of silently doing nothing.
+- ONNX Runtime and stem model downloads no longer do completion work on the audio thread, removing a potential source of audio dropouts during downloads.
+
 ## [0.13.0] - 2026-04-15
 
 ### Added

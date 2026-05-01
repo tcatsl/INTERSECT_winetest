@@ -2,21 +2,58 @@
 #include "IntersectLookAndFeel.h"
 #include "../PluginProcessor.h"
 
+namespace
+{
+juce::String getStemDeviceDisplayValue (StemComputeDevice device)
+{
+    if (device != StemComputeDevice::gpu)
+        return stemComputeDeviceToString (device);
+
+    const auto providerName = getAvailableGpuProviderName();
+    return providerName.isNotEmpty() ? "GPU (" + providerName + ")" : "GPU";
+}
+}
+
 StemExportPanel::StemExportPanel (IntersectProcessor& p, int sampleId)
     : processor (p), targetSampleId (sampleId)
 {
+    ortSupportedOnPlatform = INTERSECT_HAS_ONNX_RUNTIME;
+    ortBundleInstalled = ortSupportedOnPlatform
+                         && processor.getActiveOrtBundleDirectoryName().isNotEmpty();
+    ortAvailable = ortSupportedOnPlatform && ortBundleInstalled;
+
     installedModels = processor.getInstalledStemModels();
-    selectedDevice = processor.getStemComputeDevice();
+    selectedDevice = getAvailableGpuProviderName().isNotEmpty()
+                         ? processor.getStemComputeDevice()
+                         : StemComputeDevice::cpu;
 
     modelCell.label = "MODEL";
     deviceCell.label = "DEVICE";
     modeCell.label = "MODE";
     outputCell.label = "OUTPUT";
 
-    deviceCell.displayValue = stemComputeDeviceToString (selectedDevice);
-    modeCell.displayValue = stemExportModeToString (selectedExportMode);
-    outputCell.displayValue = "Beside sample";
-    updateSelectedModelDisplay();
+    if (ortAvailable)
+    {
+        deviceCell.displayValue = getStemDeviceDisplayValue (selectedDevice);
+        modeCell.displayValue = stemExportModeToString (selectedExportMode);
+        outputCell.displayValue = "Beside sample";
+        updateSelectedModelDisplay();
+    }
+    else if (ortSupportedOnPlatform)
+    {
+        modelCell.displayValue = "Download required";
+        deviceCell.displayValue = "-";
+        modeCell.displayValue = "-";
+        outputCell.displayValue = "-";
+    }
+    else
+    {
+        modelCell.displayValue = "Not available";
+        deviceCell.displayValue = "-";
+        modeCell.displayValue = "-";
+        outputCell.displayValue = "-";
+    }
+
     rebuildStemToggles();
 
     addAndMakeVisible (startBtn);
@@ -111,8 +148,18 @@ void StemExportPanel::paint (juce::Graphics& g)
     drawCell (modeCell);
     drawCell (outputCell);
 
-    // Stem toggles
-    if (! stemToggles.empty())
+    // Stem toggles / unavailable message
+    if (! ortAvailable)
+    {
+        auto msgArea = getLocalBounds().withTrimmedTop (33).reduced (4, 0);
+        g.setFont (IntersectLookAndFeel::makeFont (10.0f));
+        g.setColour (getTheme().text2.withAlpha (0.6f));
+        const auto message = ortSupportedOnPlatform
+            ? juce::String ("Download an ONNX Runtime bundle in SET > Stem Separation > ONNX Runtime to enable stem export.")
+            : juce::String ("Stem separation is not available on this platform");
+        g.drawText (message, msgArea, juce::Justification::centredLeft);
+    }
+    else if (! stemToggles.empty())
     {
         auto toggleArea = getLocalBounds().withTrimmedTop (33).reduced (4, 0);
         g.setFont (IntersectLookAndFeel::makeFont (9.0f, true));
@@ -156,8 +203,9 @@ void StemExportPanel::resized()
     modelCell.bounds = { x, pad, 130, btnH };
     x += 130 + gap;
 
-    deviceCell.bounds = { x, pad, 48, btnH };
-    x += 48 + gap;
+    constexpr int deviceCellWidth = 108;
+    deviceCell.bounds = { x, pad, deviceCellWidth, btnH };
+    x += deviceCellWidth + gap;
 
     modeCell.bounds = { x, pad, 76, btnH };
     x += 76 + gap;
@@ -216,6 +264,9 @@ int StemExportPanel::hitTestStemToggle (juce::Point<int> pos) const
 
 void StemExportPanel::mouseDown (const juce::MouseEvent& e)
 {
+    if (! ortAvailable)
+        return;
+
     int idx = hitTestCell (e.getPosition());
 
     if (idx == 0 && installedModels.size() > 1)
@@ -224,12 +275,12 @@ void StemExportPanel::mouseDown (const juce::MouseEvent& e)
         updateSelectedModelDisplay();
         rebuildStemToggles();
     }
-    else if (idx == 1)
+    else if (idx == 1 && getAvailableGpuProviderName().isNotEmpty())
     {
         selectedDevice = (selectedDevice == StemComputeDevice::cpu)
                              ? StemComputeDevice::gpu
                              : StemComputeDevice::cpu;
-        deviceCell.displayValue = stemComputeDeviceToString (selectedDevice);
+        deviceCell.displayValue = getStemDeviceDisplayValue (selectedDevice);
         repaint();
     }
     else if (idx == 2)
@@ -296,7 +347,7 @@ void StemExportPanel::updateSelectedModelDisplay()
 
 void StemExportPanel::updateStartButtonState()
 {
-    startBtn.setEnabled (! installedModels.empty() && getStemSelectionMask() != 0);
+    startBtn.setEnabled (ortAvailable && ! installedModels.empty() && getStemSelectionMask() != 0);
 }
 
 StemSelectionMask StemExportPanel::getStemSelectionMask() const

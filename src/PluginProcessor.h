@@ -10,6 +10,7 @@
 #include "audio/VoicePool.h"
 #include "audio/LazyChopEngine.h"
 #include "audio/StemModelDownloadJob.h"
+#include "audio/OrtBundleDownloadJob.h"
 #include "audio/StemSeparationJob.h"
 #include "UndoManager.h"
 #include "params/GlobalParamSnapshot.h"
@@ -216,6 +217,15 @@ public:
     void setStemComputeDevice (StemComputeDevice device) noexcept { stemComputeDevice = device; }
     std::vector<StemModelId> getInstalledStemModels() const;
     bool isStemModelInstalled (StemModelId modelId) const;
+
+    // ORT runtime bundle management
+    juce::File getOrtRootFolder() const;
+    std::vector<OrtBundleId> getInstalledOrtBundles() const;
+    juce::String getActiveOrtBundleDirectoryName() const;
+    bool setActiveOrtBundle (OrtBundleId bundleId);
+    void startOrtBundleDownload (OrtBundleId bundleId);
+    void cancelOrtBundleDownload();
+    OrtBundleDownloadJob& getOrtBundleDownloadJob() { return ortBundleDownloadJob; }
     void showTransientStatusMessage (const juce::String& text, bool isWarning)
     {
         setUiStatusMessage (text, isWarning);
@@ -419,6 +429,7 @@ private:
     void publishUiSliceSnapshot();
     void handleAsyncUpdate() override;
     void handleStemJobCompletionOnMessageThread();
+    void handleDownloadCompletionsOnMessageThread();
     void setMissingFileInfo (const RtText<512>& fileName, const RtText<4096>& filePath);
     void clearMissingFileInfo();
     const MissingFileInfo& getMissingFileInfo() const;
@@ -489,6 +500,7 @@ private:
     juce::File stemModelFolder;
     StemComputeDevice stemComputeDevice = StemComputeDevice::cpu;
     StemModelDownloadJob stemModelDownloadJob;
+    OrtBundleDownloadJob ortBundleDownloadJob;
     StemSeparationJob stemJob;
     std::atomic<bool> stemCompletionQueued { false };
 
