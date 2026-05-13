@@ -1,0 +1,23 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        ca-certificates \
+        cmake \
+        git \
+        libasound2-dev \
+        libcurl4-openssl-dev \
+        libfreetype-dev \
+        libwebkit2gtk-4.1-dev \
+        libx11-dev \
+        libxcursor-dev \
+        libxinerama-dev \
+        libxrandr-dev \
+        pkg-config \
+        zip \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /work

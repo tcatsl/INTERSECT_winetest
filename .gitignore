@@ -46,3 +46,6 @@ nul
 info/
 .docs/
 .codex
+.containers/*
+!.containers/
+!.containers/Containerfile.ubuntu2204-build
