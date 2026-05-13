@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 - Documented Flatpak DAW library-path settings for CUDA ONNX Runtime bundles when hosted plugins cannot load CUDA provider libraries.
+- Replaced the single-page README with a slim landing page plus a full documentation site at <https://tucktuckg00se.github.io/INTERSECT/> covering installation, workflow, interface, controls reference, NRPN routing, themes, and building from source.
 
 ### Fixed
 - Sample browser path text now follows the active theme immediately on plugin open and when switching themes.

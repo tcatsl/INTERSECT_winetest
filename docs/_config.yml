@@ -1,0 +1,29 @@
+title: INTERSECT
+description: Sample slicer instrument plugin (VST3/AU/Standalone) with multi-sample sessions, per-slice locking, and MIDI-triggered slice playback.
+
+remote_theme: just-the-docs/just-the-docs
+
+url: "https://tucktuckg00se.github.io"
+baseurl: "/INTERSECT"
+
+permalink: pretty
+
+color_scheme: dark
+search_enabled: true
+heading_anchors: true
+
+aux_links:
+  "GitHub":
+    - "https://github.com/tucktuckg00se/INTERSECT"
+  "Releases":
+    - "https://github.com/tucktuckg00se/INTERSECT/releases"
+  "Sponsor":
+    - "https://github.com/sponsors/tucktuckg00se"
+
+aux_links_new_tab: true
+
+footer_content: "INTERSECT &mdash; <a href=\"https://github.com/tucktuckg00se/INTERSECT/blob/main/LICENSE\">GPL v3.0</a>"
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag

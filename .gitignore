@@ -46,6 +46,14 @@ nul
 info/
 .docs/
 .codex
+
+# Jekyll (docs site local preview)
+docs/_site/
+docs/.jekyll-cache/
+docs/.jekyll-metadata
+docs/vendor/
+docs/Gemfile.lock
+docs/.bundle/
 .containers/*
 !.containers/
 !.containers/Containerfile.ubuntu2204-build
