@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Documented Flatpak DAW library-path settings for CUDA ONNX Runtime bundles when hosted plugins cannot load CUDA provider libraries.
+
+### Fixed
+- Sample browser path text now follows the active theme immediately on plugin open and when switching themes.
+
 ## [0.15.0] - 2026-05-12
 
 ### Added

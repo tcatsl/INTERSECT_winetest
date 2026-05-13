@@ -70,6 +70,14 @@ After both are installed, open a sample's `STEMS` button to export.
 
   Install on Arch: `sudo pacman -S cuda cudnn`
   Install on Ubuntu: `sudo apt install nvidia-cuda-toolkit libcudnn9-cuda-12` (adjust the cuDNN package name to match your CUDA version)
+
+  Flatpak DAW hosts, such as the Flatpak build of Bitwig Studio, may need extra library-path configuration even when GPU access is enabled in Flatseal. If the standalone app can use CUDA but the Flatpak-hosted plugin reports `OrtSessionOptionsAppendExecutionProvider_Cuda: Failed to load shared library`, add these environment variables to the DAW in Flatseal:
+
+  ```text
+  LD_LIBRARY_PATH=/opt/cuda/lib64:/usr/lib/x86_64-linux-gnu/GL/lib
+  LD_PRELOAD=/run/host/usr/lib/libcudnn.so.9
+  ```
+
 - **Linux — AMD MIGraphX** — requires ROCm installed. See [AMD's ROCm install guide](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/). Experimental.
 - **Linux — CPU** — no extra installs required.
 

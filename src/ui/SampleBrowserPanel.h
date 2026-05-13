@@ -20,6 +20,7 @@ public:
 
     void setBookmarks (const juce::StringArray& paths);
     juce::StringArray getBookmarks() const;
+    void refreshThemeColours();
 
     std::function<void (const std::vector<juce::File>&)> onFilesChosen;
     std::function<void()> onBookmarksChanged;
@@ -71,6 +72,17 @@ private:
         SampleBrowserPanel& owner;
     };
 
+    class PathDisplay : public juce::Component
+    {
+    public:
+        explicit PathDisplay (SampleBrowserPanel& ownerIn) : owner (ownerIn) {}
+        void paint (juce::Graphics& g) override;
+        void mouseDown (const juce::MouseEvent& e) override;
+
+    private:
+        SampleBrowserPanel& owner;
+    };
+
     int getNumLocationRows() const;
     int getNumFileRows() const;
     void paintLocationRow (int row, juce::Graphics& g, int width, int height, bool selected);
@@ -91,6 +103,8 @@ private:
     bool hasBookmark (const juce::File& dir) const;
     std::vector<juce::File> getSelectedAudioFiles() const;
     juce::String makeDragDescriptionForRows (const juce::SparseSet<int>& rows) const;
+    void beginPathEditing();
+    void endPathEditing (bool resetTextToCurrentDirectory);
     void commitPathText();
     void flashPathError();
     void updateListThemeColours();
@@ -106,6 +120,7 @@ private:
     juce::TextButton upButton { juce::String::charToString (0x2191) };      // ↑
     juce::TextButton refreshButton { juce::String::charToString (0x21BB) }; // ↻
     juce::Label titleLabel;
+    PathDisplay pathDisplay { *this };
     juce::TextEditor pathEditor;
     LocationListModel locationModel { *this };
     FileListModel fileModel { *this };
@@ -124,6 +139,7 @@ private:
     int splitterDragStartHeight = 0;
     bool splitterDragging = false;
     bool splitterHover = false;
+    bool pathEditorActive = false;
     juce::Rectangle<int> locationSectionBounds;
     juce::Rectangle<int> fileSectionBounds;
     juce::Rectangle<int> splitterBounds;

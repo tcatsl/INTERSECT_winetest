@@ -560,6 +560,7 @@ void IntersectEditor::applyTheme (const juce::String& themeName)
             processor.sliceManager.setSlicePalette (getTheme().slicePalette);
             processor.sliceManager.recolourFromPalette();
             processor.markUiSnapshotDirty();
+            sampleBrowser.refreshThemeColours();
             float scale = processor.apvts.getRawParameterValue (ParamIds::uiScale)->load();
             saveUserSettings (scale, themeName);
             repaint();
@@ -576,6 +577,7 @@ void IntersectEditor::applyTheme (const juce::String& themeName)
     processor.sliceManager.setSlicePalette (getTheme().slicePalette);
     processor.sliceManager.recolourFromPalette();
     processor.markUiSnapshotDirty();
+    sampleBrowser.refreshThemeColours();
     float scale = processor.apvts.getRawParameterValue (ParamIds::uiScale)->load();
     saveUserSettings (scale, themeName);
     repaint();
