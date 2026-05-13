@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-05-12
+
 ### Added
 - Built-in sample browser side panel: toggle with the new FILES button in the header to navigate your file system, bookmark folders, browse with back/forward/up/refresh, and drag or double-click audio files into the waveform. Browser visibility and bookmarks are saved with your user settings.
 
