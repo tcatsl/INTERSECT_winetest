@@ -584,6 +584,7 @@ void SampleBrowserPanel::showLocationMenu (int row, juce::Point<int> position)
         menu.addItem (kAddBookmark, "Add Bookmark");
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetScreenArea ({ position, { 1, 1 } })
+                                                   .withParentComponent (getTopLevelComponent())
                                                    .withDeletionCheck (*this),
         [this, item] (int result)
         {
@@ -609,6 +610,7 @@ void SampleBrowserPanel::showFileMenu (int row, juce::Point<int> position)
         menu.addItem (kAddBookmark, "Add Bookmark");
 
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetScreenArea ({ position, { 1, 1 } })
+                                                   .withParentComponent (getTopLevelComponent())
                                                    .withDeletionCheck (*this),
         [this, item] (int result)
         {

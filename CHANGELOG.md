@@ -16,6 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - Wayland drag-and-drop fallback hint on the empty waveform now auto-hides after a few seconds instead of staying on screen indefinitely
 - Dropping non-audio files onto the waveform no longer attempts to load them
+- Browser bookmark right-click menu now appears under the cursor at every UI scale
 
 ## [0.14.0] - 2026-05-01
 
