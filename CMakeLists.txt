@@ -146,6 +146,7 @@ target_sources(Intersect PRIVATE
     src/params/ParamLayout.cpp
     src/ui/IntersectLookAndFeel.cpp
     src/ui/HeaderBar.cpp
+    src/ui/SampleBrowserPanel.cpp
     src/ui/SampleLane.cpp
     src/ui/SignalChainBar.cpp
     src/ui/WaveformView.cpp

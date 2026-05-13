@@ -6,6 +6,7 @@ class IntersectProcessor;
 
 class WaveformView : public juce::Component,
                      public juce::FileDragAndDropTarget,
+                     public juce::DragAndDropTarget,
                      private juce::Timer
 {
 public:
@@ -25,6 +26,8 @@ public:
 
     bool isInterestedInFileDrag (const juce::StringArray& files) override;
     void filesDropped (const juce::StringArray& files, int x, int y) override;
+    bool isInterestedInDragSource (const juce::DragAndDropTarget::SourceDetails& dragSourceDetails) override;
+    void itemDropped (const juce::DragAndDropTarget::SourceDetails& dragSourceDetails) override;
 
     void rebuildCacheIfNeeded();
     bool hasActiveSlicePreview() const noexcept;
@@ -120,4 +123,5 @@ private:
 
     juce::String overlayHintText;
     bool overlayHintSticky = false;
+    double waylandHintHideTimeMs = 0.0;
 };

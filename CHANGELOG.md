@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Built-in sample browser side panel: toggle with the new FILES button in the header to navigate your file system, bookmark folders, browse with back/forward/up/refresh, and drag or double-click audio files into the waveform. Browser visibility and bookmarks are saved with your user settings.
+
+### Changed
+- Replaced the LOAD and APPEND buttons in the header with a single FILES toggle that opens the new browser panel
+- Sample name and status text in the header is now centered, and warning text follows the active theme's warning color instead of a hard-coded orange
+
+### Fixed
+- Wayland drag-and-drop fallback hint on the empty waveform now auto-hides after a few seconds instead of staying on screen indefinitely
+- Dropping non-audio files onto the waveform no longer attempts to load them
+
 ## [0.14.0] - 2026-05-01
 
 ### Added

@@ -11,6 +11,7 @@ static constexpr float kScrollbarH = 10.0f;
 static constexpr float kActionH    = 22.0f;
 static constexpr float kWaveformMinH = 180.0f;
 static constexpr float kCollapsedSignalChainH = 114.0f;
+static constexpr int kSampleBrowserW = 260;
 
 static juce::File getSettingsDir()
 {
@@ -93,6 +94,7 @@ FadeOverlayState resolveSelectedFadeOverlayState (const IntersectProcessor::UiSl
 IntersectEditor::IntersectEditor (IntersectProcessor& p)
     : AudioProcessorEditor (p),
       processor (p),
+      sampleBrowser(),
       headerBar (p),
       sampleLane (p, waveformView),
       signalChainBar (p),
@@ -103,6 +105,7 @@ IntersectEditor::IntersectEditor (IntersectProcessor& p)
 {
     setLookAndFeel (&lnf);
 
+    addChildComponent (sampleBrowser);
     addAndMakeVisible (headerBar);
     addAndMakeVisible (sampleLane);
     addAndMakeVisible (signalChainBar);
@@ -116,11 +119,18 @@ IntersectEditor::IntersectEditor (IntersectProcessor& p)
     sliceLane.onInteraction = [this] { deleteTarget = DeleteTarget::slice; };
     waveformView.onInteraction = [this] { deleteTarget = DeleteTarget::slice; };
     actionPanel.onDeleteRequested = [this] { performContextualDelete(); };
+    headerBar.onBrowserToggle = [this] { setSampleBrowserVisible (! sampleBrowserVisible); };
+    sampleBrowser.onFilesChosen = [this] (const std::vector<juce::File>& files) { loadBrowserFiles (files); };
+    sampleBrowser.onBookmarksChanged = [this]
+    {
+        float scale = processor.apvts.getRawParameterValue (ParamIds::uiScale)->load();
+        saveUserSettings (scale, getTheme().name);
+    };
 
     signalChainBar.onHeightChanged = [this]
     {
         float delta = signalChainBar.getDesiredHeight() - kCollapsedSignalChainH;
-        setSize (kBaseW, kBaseH + (int) delta);
+        setSize (kBaseW + (sampleBrowserVisible ? kSampleBrowserW : 0), kBaseH + (int) delta);
     };
 
     // Write default theme files if they don't exist
@@ -138,7 +148,7 @@ IntersectEditor::IntersectEditor (IntersectProcessor& p)
     }
 
     setWantsKeyboardFocus (true);
-    setSize (kBaseW, kBaseH);
+    setSize (kBaseW + (sampleBrowserVisible ? kSampleBrowserW : 0), kBaseH);
     lastUiSnapshotVersion = processor.getUiSliceSnapshotVersion();
     lastGlobalFadeCrossfade = processor.apvts.getRawParameterValue (ParamIds::defaultCrossfade)->load();
     lastGlobalFadeLoopMode = juce::roundToInt (processor.apvts.getRawParameterValue (ParamIds::defaultLoop)->load());
@@ -159,6 +169,12 @@ void IntersectEditor::paint (juce::Graphics& g)
 
 void IntersectEditor::resized()
 {
+    auto bounds = getLocalBounds();
+    if (sampleBrowserVisible)
+        sampleBrowser.setBounds (bounds.removeFromLeft (kSampleBrowserW));
+    else
+        sampleBrowser.setBounds ({});
+
     juce::FlexBox shell;
     shell.flexDirection = juce::FlexBox::Direction::column;
     shell.flexWrap = juce::FlexBox::Wrap::noWrap;
@@ -192,7 +208,7 @@ void IntersectEditor::resized()
                          .withMaxHeight (signalChainH)
                          .withHeight (signalChainH));
 
-    shell.performLayout (getLocalBounds().toFloat());
+    shell.performLayout (bounds.toFloat());
 }
 
 bool IntersectEditor::keyPressed (const juce::KeyPress& key)
@@ -335,6 +351,41 @@ void IntersectEditor::performContextualDelete()
     }
 
     actionPanel.deleteSelectedSliceDirect();
+}
+
+void IntersectEditor::setSampleBrowserVisible (bool shouldBeVisible)
+{
+    if (sampleBrowserVisible == shouldBeVisible)
+        return;
+
+    sampleBrowserVisible = shouldBeVisible;
+    sampleBrowser.setVisible (sampleBrowserVisible);
+
+    const float delta = signalChainBar.getDesiredHeight() - kCollapsedSignalChainH;
+    setSize (kBaseW + (sampleBrowserVisible ? kSampleBrowserW : 0), kBaseH + (int) delta);
+
+    float scale = processor.apvts.getRawParameterValue (ParamIds::uiScale)->load();
+    saveUserSettings (scale, getTheme().name);
+}
+
+void IntersectEditor::loadBrowserFiles (const std::vector<juce::File>& files)
+{
+    std::vector<juce::File> validFiles;
+    validFiles.reserve (files.size());
+    for (const auto& file : files)
+        if (file.existsAsFile())
+            validFiles.push_back (file);
+
+    if (validFiles.empty())
+        return;
+
+    const bool doAppend = processor.sampleData.isLoaded();
+    processor.loadFilesAsync (validFiles, doAppend);
+    if (! doAppend)
+    {
+        processor.zoom.store (1.0f);
+        processor.scroll.store (0.0f);
+    }
 }
 
 void IntersectEditor::timerCallback()
@@ -553,6 +604,14 @@ void IntersectEditor::saveUserSettings (float scale, const juce::String& themeNa
     content << "nrpnChannel: "  << processor.midiEditState.channel.load (std::memory_order_relaxed) << "\n";
     content << "nrpnBlockCc: "  << (processor.midiEditState.consumeMidiEditCc.load (std::memory_order_relaxed) ? "true" : "false") << "\n";
     content << "middleC: " << middleCOctave << "\n";
+    content << "sampleBrowserVisible: " << (sampleBrowserVisible ? "true" : "false") << "\n";
+    const auto browserBookmarks = sampleBrowser.getBookmarks();
+    if (! browserBookmarks.isEmpty())
+    {
+        content << "sampleBrowserBookmarks:\n";
+        for (const auto& path : browserBookmarks)
+            content << "  - " << path << "\n";
+    }
     const auto stemFolder = processor.getStemModelFolder();
     if (stemFolder != juce::File())
         content << "stemModelFolder: " << stemFolder.getFullPathName() << "\n";
@@ -564,14 +623,32 @@ void IntersectEditor::loadUserSettings()
 {
     savedScale = -1.0f;
     juce::String themeName = "dark";
+    juce::StringArray browserBookmarks;
 
     auto file = getUserSettingsFile();
     if (file.existsAsFile())
     {
         auto content = file.loadFileAsString();
+        bool readingBrowserBookmarks = false;
         for (auto line : juce::StringArray::fromLines (content))
         {
+            const auto rawLine = line;
             line = line.trim();
+
+            if (readingBrowserBookmarks)
+            {
+                if (line.startsWith ("-"))
+                {
+                    auto path = line.fromFirstOccurrenceOf ("-", false, false).trim();
+                    if (path.isNotEmpty())
+                        browserBookmarks.addIfNotAlreadyThere (path);
+                    continue;
+                }
+
+                if (! rawLine.startsWithChar (' ') && ! rawLine.startsWithChar ('\t'))
+                    readingBrowserBookmarks = false;
+            }
+
             if (line.startsWith ("uiScale:"))
             {
                 float val = line.fromFirstOccurrenceOf (":", false, false).trim().getFloatValue();
@@ -603,6 +680,15 @@ void IntersectEditor::loadUserSettings()
                 if (val == 3 || val == 4 || val == 5)
                     middleCOctave = val;
             }
+            else if (line.startsWith ("sampleBrowserVisible:"))
+            {
+                auto val = line.fromFirstOccurrenceOf (":", false, false).trim();
+                sampleBrowserVisible = val == "true";
+            }
+            else if (line.startsWith ("sampleBrowserBookmarks:"))
+            {
+                readingBrowserBookmarks = true;
+            }
             else if (line.startsWith ("stemModelFolder:"))
             {
                 processor.setStemModelFolder (juce::File (line.fromFirstOccurrenceOf (":", false, false).trim()));
@@ -623,6 +709,8 @@ void IntersectEditor::loadUserSettings()
 
     signalChainBar.middleCOctave = middleCOctave;
     processor.middleCOctave.store (middleCOctave, std::memory_order_relaxed);
+    sampleBrowser.setBookmarks (browserBookmarks);
+    sampleBrowser.setVisible (sampleBrowserVisible);
 
     // Apply theme
     applyTheme (themeName);

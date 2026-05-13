@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <functional>
 
 class IntersectProcessor;
 
@@ -8,6 +9,7 @@ class HeaderBar : public juce::Component,
 {
 public:
     explicit HeaderBar (IntersectProcessor& p);
+    std::function<void()> onBrowserToggle;
     juce::String getTooltip() override;
     void paint (juce::Graphics& g) override;
     void resized() override;
@@ -16,15 +18,13 @@ public:
 private:
     void showSettingsPopup();
     void adjustScale (float delta);
-    void openFileBrowser (bool append = false);
     void openRelinkBrowser();
 
     IntersectProcessor& processor;
+    juce::TextButton browserBtn { "FILES" };
     juce::TextButton undoBtn  { "UNDO" };
     juce::TextButton redoBtn  { "REDO" };
     juce::TextButton panicBtn { "PANIC" };
-    juce::TextButton loadBtn  { "LOAD" };
-    juce::TextButton appendBtn { "APPEND" };
     juce::TextButton settingsBtn { "SET" };
 
     std::unique_ptr<juce::FileChooser> fileChooser;

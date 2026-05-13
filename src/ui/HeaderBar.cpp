@@ -54,7 +54,7 @@ juce::String formatNrpnStatus (int channel)
 
 HeaderBar::HeaderBar (IntersectProcessor& p) : processor (p)
 {
-    for (auto* btn : { &undoBtn, &redoBtn, &panicBtn, &loadBtn, &appendBtn, &settingsBtn })
+    for (auto* btn : { &browserBtn, &undoBtn, &redoBtn, &panicBtn, &settingsBtn })
     {
         addAndMakeVisible (*btn);
         btn->setAlwaysOnTop (true);
@@ -74,9 +74,14 @@ HeaderBar::HeaderBar (IntersectProcessor& p) : processor (p)
 
     undoBtn.setTooltip ("Undo (Ctrl+Z)");
     redoBtn.setTooltip ("Redo (Ctrl+Shift+Z)");
-    loadBtn.setTooltip ("Load sample");
-    appendBtn.setTooltip ("Append samples");
+    browserBtn.setTooltip ("Show or hide file browser");
     settingsBtn.setTooltip ("Settings");
+
+    browserBtn.onClick = [this]
+    {
+        if (onBrowserToggle != nullptr)
+            onBrowserToggle();
+    };
 
     undoBtn.onClick = [this]
     {
@@ -92,8 +97,6 @@ HeaderBar::HeaderBar (IntersectProcessor& p) : processor (p)
         processor.pushCommand (cmd);
     };
 
-    loadBtn.onClick = [this] { openFileBrowser (false); };
-    appendBtn.onClick = [this] { openFileBrowser (true); };
     settingsBtn.onClick = [this] { showSettingsPopup(); };
 }
 
@@ -123,27 +126,16 @@ void HeaderBar::resized()
     };
 
     const int setW = buttonWidth (settingsBtn.getButtonText(), 38);
-    const int appendW = buttonWidth (appendBtn.getButtonText(), 58);
-    const int loadW = buttonWidth (loadBtn.getButtonText(), 42);
     const int panicW = buttonWidth (panicBtn.getButtonText(), 50);
     const int redoW = buttonWidth (redoBtn.getButtonText(), 44);
     const int undoW = buttonWidth (undoBtn.getButtonText(), 44);
-    const int buttonStripW = undoW + redoW + panicW + loadW + appendW + setW + buttonGap * 5;
+    const int browserW = buttonWidth (browserBtn.getButtonText(), 46);
+    const int rightStripW = undoW + redoW + panicW + setW + buttonGap * 3;
+    const auto centredY = area.getY() + (area.getHeight() - buttonHeight) / 2;
 
-    juce::FlexBox row;
-    row.flexDirection = juce::FlexBox::Direction::row;
-    row.flexWrap = juce::FlexBox::Wrap::noWrap;
-    row.alignItems = juce::FlexBox::AlignItems::center;
+    browserBtn.setBounds (area.getX(), centredY, browserW, buttonHeight);
 
-    // File info (flex) | buttons
-    row.items.add (juce::FlexItem().withFlex (1.0f).withMinWidth (80.0f).withHeight ((float) contentHeight));
-    row.items.add (juce::FlexItem().withWidth (8.0f).withHeight ((float) contentHeight));   // gap
-    row.items.add (juce::FlexItem().withWidth ((float) buttonStripW).withHeight ((float) contentHeight));
-    row.performLayout (area.toFloat());
-
-    sampleInfoBounds = row.items[0].currentBounds.getSmallestIntegerContainer();
-
-    const auto buttonArea = row.items[2].currentBounds.getSmallestIntegerContainer();
+    auto buttonArea = area.removeFromRight (rightStripW);
     juce::FlexBox buttons;
     buttons.flexDirection = juce::FlexBox::Direction::row;
     buttons.flexWrap = juce::FlexBox::Wrap::noWrap;
@@ -154,17 +146,19 @@ void HeaderBar::resized()
     buttons.items.add (juce::FlexItem().withWidth ((float) buttonGap).withHeight ((float) buttonHeight));
     buttons.items.add (juce::FlexItem (panicBtn).withWidth ((float) panicW).withHeight ((float) buttonHeight));
     buttons.items.add (juce::FlexItem().withWidth ((float) buttonGap).withHeight ((float) buttonHeight));
-    buttons.items.add (juce::FlexItem (loadBtn).withWidth ((float) loadW).withHeight ((float) buttonHeight));
-    buttons.items.add (juce::FlexItem().withWidth ((float) buttonGap).withHeight ((float) buttonHeight));
-    buttons.items.add (juce::FlexItem (appendBtn).withWidth ((float) appendW).withHeight ((float) buttonHeight));
-    buttons.items.add (juce::FlexItem().withWidth ((float) buttonGap).withHeight ((float) buttonHeight));
     buttons.items.add (juce::FlexItem (settingsBtn).withWidth ((float) setW).withHeight ((float) buttonHeight));
     buttons.performLayout (buttonArea.toFloat());
+
+    const int leftGuard = browserW + 12;
+    const int rightGuard = rightStripW + 12;
+    sampleInfoBounds = getLocalBounds().reduced (juce::jmax (leftGuard, rightGuard), 0)
+                                     .withHeight (contentHeight)
+                                     .withCentre ({ getWidth() / 2, getHeight() / 2 });
 }
 
 void HeaderBar::paint (juce::Graphics& g)
 {
-    for (auto* btn : { &undoBtn, &redoBtn, &panicBtn, &loadBtn, &appendBtn, &settingsBtn })
+    for (auto* btn : { &browserBtn, &undoBtn, &redoBtn, &panicBtn, &settingsBtn })
     {
         auto text = getTheme().text2.withAlpha (btn->isMouseOverOrDragging() ? 1.0f : 0.88f);
         btn->setColour (juce::TextButton::buttonColourId,
@@ -183,13 +177,13 @@ void HeaderBar::paint (juce::Graphics& g)
     if (ui.hasStatusMessage)
     {
         fileText = ui.statusMessage.toString();
-        g.setColour (ui.statusIsWarning ? juce::Colours::orange.brighter (0.1f)
+        g.setColour (ui.statusIsWarning ? getTheme().color5.brighter (0.1f)
                                         : getTheme().text1);
     }
     else if (ui.sampleMissing)
     {
         fileText = "MISSING: " + ui.sampleFileName.toString();
-        g.setColour (juce::Colours::orange.brighter (0.1f));
+        g.setColour (getTheme().color5.brighter (0.1f));
     }
     else
     {
@@ -198,7 +192,7 @@ void HeaderBar::paint (juce::Graphics& g)
     }
 
     g.setFont (IntersectLookAndFeel::fitFontToWidth (fileText, 11.0f, 9.0f, sampleInfoBounds.getWidth(), false));
-    g.drawText (fileText, sampleInfoBounds, juce::Justification::centredLeft);
+    g.drawText (fileText, sampleInfoBounds, juce::Justification::centred);
 }
 
 void HeaderBar::mouseDown (const juce::MouseEvent& e)
@@ -495,40 +489,6 @@ void HeaderBar::showSettingsPopup()
                 const int idx = result - kMenuOrtBundleActivateBase;
                 if (idx >= 0 && idx < (int) bundles.size())
                     processor.setActiveOrtBundle (bundles[(size_t) idx].id);
-            }
-        });
-}
-
-void HeaderBar::openFileBrowser (bool append)
-{
-    fileChooser = std::make_unique<juce::FileChooser> (
-        append ? "Append Audio Files" : "Load Audio Files",
-        juce::File(),
-        "*.wav;*.ogg;*.aiff;*.aif;*.flac;*.mp3");
-
-    fileChooser->launchAsync (juce::FileBrowserComponent::openMode
-                                | juce::FileBrowserComponent::canSelectFiles
-                                | juce::FileBrowserComponent::canSelectMultipleItems,
-        [this, append] (const juce::FileChooser& fc)
-        {
-            const auto results = fc.getResults();
-            std::vector<juce::File> files;
-            files.reserve (results.size());
-            for (const auto& result : results)
-            {
-                if (result.existsAsFile())
-                    files.push_back (result);
-            }
-
-            if (files.empty())
-                return;
-
-            const bool doAppend = append && processor.sampleData.isLoaded();
-            processor.loadFilesAsync (files, doAppend);
-            if (! doAppend)
-            {
-                processor.zoom.store (1.0f);
-                processor.scroll.store (0.0f);
             }
         });
 }

@@ -79,8 +79,8 @@ juce::Rectangle<float> makeLoopHandleBounds (int x, bool isLeft, bool highlighte
 juce::String getEmptyWaveformPrompt()
 {
     return Intersect::LinuxDesktopSupport::shouldUseWaylandDndFallbackMessaging()
-        ? "CLICK LOAD TO OPEN AUDIO FILE"
-        : "DROP AUDIO FILE OR CLICK LOAD";
+        ? "OPEN FILES TO LOAD AUDIO"
+        : "DROP AUDIO FILE OR OPEN FILES";
 }
 
 juce::String getWaylandEmptyStateHint()
@@ -113,7 +113,18 @@ void paintHintBanner (juce::Graphics& g, const juce::String& text, int component
 }
 } // namespace
 
-WaveformView::WaveformView (IntersectProcessor& p) : processor (p) {}
+WaveformView::WaveformView (IntersectProcessor& p) : processor (p)
+{
+    if (Intersect::LinuxDesktopSupport::shouldUseWaylandDndFallbackMessaging())
+    {
+        waylandHintHideTimeMs = juce::Time::getMillisecondCounterHiRes() + 5000.0;
+        juce::Timer::callAfterDelay (5100, [safe = juce::Component::SafePointer<WaveformView> (this)]
+        {
+            if (safe != nullptr)
+                safe->repaint();
+        });
+    }
+}
 
 void WaveformView::setSliceDrawMode (bool active)
 {
@@ -308,7 +319,9 @@ void WaveformView::paint (juce::Graphics& g)
         g.setFont (IntersectLookAndFeel::fitFontToWidth (prompt, 22.0f, 12.0f, getWidth() - 24, true));
         g.drawFittedText (prompt, getLocalBounds().reduced (12, 0), juce::Justification::centred, 1);
 
-        if (overlayHintText.isEmpty() && Intersect::LinuxDesktopSupport::shouldUseWaylandDndFallbackMessaging())
+        if (overlayHintText.isEmpty()
+            && waylandHintHideTimeMs > 0.0
+            && juce::Time::getMillisecondCounterHiRes() < waylandHintHideTimeMs)
             paintHintBanner (g, getWaylandEmptyStateHint(), getWidth(), getHeight());
     }
 
@@ -1347,7 +1360,12 @@ void WaveformView::filesDropped (const juce::StringArray& files, int, int)
         {
             juce::File file (path);
             if (file.existsAsFile())
+            {
+                const auto ext = file.getFileExtension().toLowerCase();
+                if (ext != ".wav" && ext != ".ogg" && ext != ".aiff" && ext != ".aif" && ext != ".flac" && ext != ".mp3")
+                    continue;
                 droppedFiles.push_back (file);
+            }
         }
 
         if (droppedFiles.empty())
@@ -1362,4 +1380,43 @@ void WaveformView::filesDropped (const juce::StringArray& files, int, int)
         }
         prevCacheKey = {};
     }
+}
+
+bool WaveformView::isInterestedInDragSource (const juce::DragAndDropTarget::SourceDetails& dragSourceDetails)
+{
+    return dragSourceDetails.description.toString().startsWith ("INTERSECT_BROWSER_FILES\n");
+}
+
+void WaveformView::itemDropped (const juce::DragAndDropTarget::SourceDetails& dragSourceDetails)
+{
+    const auto text = dragSourceDetails.description.toString();
+    if (! text.startsWith ("INTERSECT_BROWSER_FILES\n"))
+        return;
+
+    auto paths = juce::StringArray::fromLines (text.fromFirstOccurrenceOf ("\n", false, false));
+    std::vector<juce::File> droppedFiles;
+    droppedFiles.reserve ((size_t) paths.size());
+
+    for (const auto& path : paths)
+    {
+        const juce::File file (path.trim());
+        if (! file.existsAsFile())
+            continue;
+
+        const auto ext = file.getFileExtension().toLowerCase();
+        if (ext == ".wav" || ext == ".ogg" || ext == ".aiff" || ext == ".aif" || ext == ".flac" || ext == ".mp3")
+            droppedFiles.push_back (file);
+    }
+
+    if (droppedFiles.empty())
+        return;
+
+    const bool append = processor.sampleData.isLoaded();
+    processor.loadFilesAsync (droppedFiles, append);
+    if (! append)
+    {
+        processor.zoom.store (1.0f);
+        processor.scroll.store (0.0f);
+    }
+    prevCacheKey = {};
 }
