@@ -3,6 +3,12 @@
 
 $color-scheme: dark;
 
+// Font — matches the Inter typeface bundled with the plugin.
+// The Google Fonts <link> is in _includes/head_custom.html.
+$body-font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+                   "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif,
+                   "Segoe UI Emoji";
+
 // Surfaces
 $body-background-color:   #191c1f;  // surface1
 $sidebar-color:           #212529;  // surface2
