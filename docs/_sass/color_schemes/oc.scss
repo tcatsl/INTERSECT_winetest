@@ -1,0 +1,25 @@
+// INTERSECT docs colour scheme — mirrors themes/oc.intersectstyle.
+// Open Color palette, dark variant. https://yeun.github.io/open-color/
+
+$color-scheme: dark;
+
+// Surfaces
+$body-background-color:   #191c1f;  // surface1
+$sidebar-color:           #212529;  // surface2
+$feedback-color:          #212529;  // surface2
+$table-background-color:  #212529;  // surface2
+$search-background-color: #343a40;  // surface4
+$base-button-color:       #343a40;  // surface4
+$code-background-color:   #191c1f;  // surface0/1
+$border-color:            #495057;  // surface5
+
+// Text
+$body-text-color:              #ced4da;  // text1
+$body-heading-color:           #ced4da;  // text2
+$nav-child-link-color:         #ced4da;  // text1
+$search-result-preview-color:  #ced4da;  // text1
+$code-linenumber-color:        #868e96;  // text0
+
+// Accent
+$link-color:        #82c91e;
+$btn-primary-color: #82c91e;

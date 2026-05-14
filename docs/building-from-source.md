@@ -1,6 +1,7 @@
 ---
 title: Build from source
-nav_order: 8
+nav_order: 14
+description: "Per-OS toolchain setup, the clone+build steps, the optional Podman path for glibc-compatible Linux builds, and how to troubleshoot the build."
 ---
 
 # Build from source
@@ -80,9 +81,52 @@ cmake -B build
 cmake --build build --config Release
 ```
 
+### Build only the VST3
+
+If you don't need the Standalone or AU outputs, target just the VST3 to cut build time roughly in half:
+
+```bash
+cmake --build build --config Release --target Intersect_VST3 -j
+```
+
+### Run cppcheck before building (recommended for contributors)
+
+```bash
+cppcheck --enable=warning,performance --suppress=missingInclude src/
+```
+
+<details markdown="block">
+<summary><strong>Linux: building inside Ubuntu 22.04 Podman (matches release glibc)</strong></summary>
+
+Release Linux builds use a pinned Ubuntu 22.04 Podman image so the resulting `.vst3` works on any glibc 2.35+ system. Native Arch (or other modern-glibc distro) builds will link against your local glibc and won't run on the release baseline.
+
+If you want your local build to be glibc-compatible with the release:
+
+```bash
+podman build -t intersect-ubuntu2204-build -f .containers/Containerfile.ubuntu2204-build .
+
+podman run --rm \
+  -v "$PWD:$PWD:Z" \
+  -w "$PWD" \
+  intersect-ubuntu2204-build \
+  bash -lc 'cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release --target Intersect_VST3 -j2'
+```
+
+Mount the repo at the same absolute path inside Podman so CMake caches in `build/` remain valid.
+
+After the build, sanity-check that the binary doesn't pull in newer-than-Ubuntu-22.04 glibc symbols:
+
+```bash
+objdump -T build/Intersect_artefacts/Release/VST3/INTERSECT.vst3/Contents/x86_64-linux/INTERSECT.so | rg 'GLIBC_2\.(4[0-9]|3[6-9])'
+```
+
+The command should print no matches.
+
+</details>
+
 ## ONNX Runtime
 
-The build does not bundle any ONNX Runtime shared library. Only the ORT C++ headers are pulled in at configure time (via CMake `FetchContent`) so the plugin compiles against the published ORT API. The shared library itself is downloaded at runtime via **SET → Stem Separation → ONNX Runtime** — see [Stem separation setup]({% link installation.md %}#stem-separation-setup). This keeps each plugin zip small and lets users pick their GPU (CPU / CUDA / MIGraphX / DirectML / CoreML) without needing a separate build.
+The build does not bundle any ONNX Runtime shared library. Only the ORT C++ headers are pulled in at configure time (via CMake `FetchContent`) so the plugin compiles against the published ORT API. The shared library itself is downloaded at runtime via **SET → Stem Separation → ONNX Runtime** — see [Stem separation setup]({{ site.baseurl }}{% link installation.md %}#stem-separation-setup). This keeps each plugin zip small and lets users pick their GPU (CPU / CUDA / MIGraphX / DirectML / CoreML) without needing a separate build.
 
 ## Build outputs
 
@@ -111,3 +155,12 @@ ONNX Runtime bundles are published separately from the [intersect-ort-providers]
 - [Signalsmith Linear](https://github.com/Signalsmith-Audio/linear) (dependency of Signalsmith Stretch)
 - [Bungee](https://github.com/bungee-audio-stretch/bungee) (MPL-2.0)
 - [ONNX Runtime](https://onnxruntime.ai/) (MIT) — headers only at build time; shared library downloaded on demand
+
+## Troubleshooting build errors
+
+- **"Missing submodule" / "JUCE not found" / "signalsmith-stretch missing":** You cloned without `--recursive`, or new submodules were added since your last pull. Run `git submodule update --init --recursive`.
+- **Linux: missing X11/ALSA/WebKit headers:** Install the dev packages from the platform setup section above. The package names differ by distro.
+- **Windows: "Cannot find compiler 'cl.exe'":** Open a "Developer Command Prompt for VS 2022" before running CMake, or pass `-G "Visual Studio 17 2022"` so CMake locates the VS toolchain itself.
+- **macOS: `xcrun: error: invalid active developer path`:** Run `xcode-select --install` to install the Command Line Tools.
+- **CMake configure step downloads ONNX Runtime headers slowly:** This is a one-time `FetchContent` download per build directory. Subsequent configures reuse the cached copy.
+- **Build succeeds but the plugin won't load in your DAW:** rebuild after a `cmake --build build --target clean` if you switched compiler versions or changed CMake options between builds.

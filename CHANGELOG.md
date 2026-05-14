@@ -9,6 +9,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - Documented Flatpak DAW library-path settings for CUDA ONNX Runtime bundles when hosted plugins cannot load CUDA provider libraries.
 - Replaced the single-page README with a slim landing page plus a full documentation site at <https://tucktuckg00se.github.io/INTERSECT/> covering installation, workflow, interface, controls reference, NRPN routing, themes, and building from source.
+- Expanded the documentation site with a Getting Started walkthrough, a Stem Separation walkthrough, a Troubleshooting / FAQ page, a complete parameter reference, a settings-file reference, and a changelog page. Rewrote the Themes page with the full `.intersectstyle` colour-key reference and a sample template. Filled in missing parameter ranges in the Controls reference and added a master/global controls section.
+- Restyled the documentation site with a custom colour scheme that matches the `oc.intersectstyle` plugin theme (Open Color palette).
+- Fixed cross-page links in the documentation site that were missing the `/INTERSECT/` base URL.
 
 ### Fixed
 - Sample browser path text now follows the active theme immediately on plugin open and when switching themes.

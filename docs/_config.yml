@@ -8,7 +8,7 @@ baseurl: "/INTERSECT"
 
 permalink: pretty
 
-color_scheme: dark
+color_scheme: oc
 search_enabled: true
 heading_anchors: true
 
@@ -23,6 +23,18 @@ aux_links:
 aux_links_new_tab: true
 
 footer_content: "INTERSECT &mdash; <a href=\"https://github.com/tucktuckg00se/INTERSECT/blob/main/LICENSE\">GPL v3.0</a>"
+
+# "Edit this page on GitHub" link in each page footer
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: "https://github.com/tucktuckg00se/INTERSECT"
+gh_edit_branch: "main"
+gh_edit_source: "docs"
+gh_edit_view_mode: "edit"
+
+# Last-modified timestamp in each page footer
+last_edit_timestamp: true
+last_edit_time_format: "%b %e %Y"
 
 plugins:
   - jekyll-remote-theme

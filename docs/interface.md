@@ -1,6 +1,7 @@
 ---
 title: Interface
-nav_order: 4
+nav_order: 7
+description: "Tour of every visible area of the INTERSECT editor — header bar, sample lane, slice lane, waveform, sample browser, time/zoom bar, action bar, and signal chain."
 ---
 
 # Interface layout
@@ -44,19 +45,9 @@ Loading behavior matches the rest of INTERSECT: into an empty session, the first
 
 ## Stem separation
 
-1. Click a sample's `STEMS` button in the sample lane.
-2. Choose the model, output folder, device, and which stems to export.
-3. Start the export from the overlay panel.
+Each sample in the sample lane has a `STEMS` button that opens the stem-separation overlay panel for that sample. While a job is running on that sample, the button reads `CANCEL`.
 
-Notes:
-- Stem separation runs on the selected session sample and writes the exported stems to the chosen folder.
-- While a stem export is running, that sample's `STEMS` button changes to `CANCEL`.
-- `DEVICE` defaults to CPU. GPU can be selected when the build and local runtime support it.
-- If INTERSECT cannot use the selected GPU path, it warns before export so you can switch devices instead of silently exporting on CPU.
-- Stem separation is compute-heavy. On older PCs, especially on CPU exports, startup and processing can be noticeably slower.
-- macOS x64 (Intel Mac) builds do not include stem separation due to a platform limitation in the underlying inference runtime. The stem panel on these builds shows a "Not available" state.
-
-See [Installation → Stem separation setup]({% link installation.md %}#stem-separation-setup) for runtime + model download steps.
+For an end-to-end walkthrough — picking a model, device, and mode, then running the export — see the dedicated [Stem separation]({{ site.baseurl }}{% link stem-separation.md %}) page.
 
 ## Time / zoom bar
 
@@ -91,10 +82,17 @@ The bottom bar is the main parameter editor. It has four modules: `TIME/PITCH`, 
 - `SLICES` count and the global `ROOT` note are always visible on the right. The global `ROOT` is editable only when no slices exist.
 - When a slice is selected: slice sample range, length, a `NOTE`/`RANGE` toggle, numeric note controls, read-only note names, and override count.
 
+```text
+┌─[ Tab: GLOBAL | SLICE ]─────────[ slice range · length · NOTE/RANGE ]──────[ SLICES: 8  ROOT: C2 ]──[ ⌃ ]─┐
+│  TIME/PITCH        │  FILTER             │  AMP               │  PLAYBACK                                  │
+│  BPM PITCH ALGO …  │  TYPE CUT RESO …    │  ATK DEC SUS REL … │  REV LOOP FADE MUTE OUT …                  │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
 General behavior:
 - Drag up/down on a value to edit it.
 - Double-click a value to type it directly.
-- In `SLICE` mode, editing a field locks that field for the selected slice when it differs from the global value.
-- In `SLICE` mode, clicking a locked field label or right-clicking the field clears that override.
+- In `SLICE` mode, editing a field locks that field for the selected slice when it differs from the global value. The parameter label highlights to show the lock.
+- In `SLICE` mode, clicking a locked field label or right-clicking the field clears that override and re-inherits the global value.
 
-For each module's individual controls, see the [Controls and shortcuts reference]({% link controls-reference.md %}).
+For each module's individual controls, see the [Controls and shortcuts reference]({{ site.baseurl }}{% link controls-reference.md %}). For the underlying mental model, see [Concepts → The inheritance / lock model]({{ site.baseurl }}{% link workflow-basics.md %}#the-inheritance--lock-model).

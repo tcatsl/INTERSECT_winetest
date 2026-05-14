@@ -1,6 +1,7 @@
 ---
 title: Controls and shortcuts
 nav_order: 5
+description: "Every button, parameter, gesture, and keyboard shortcut in the INTERSECT editor."
 ---
 
 # Controls and shortcuts reference
@@ -12,8 +13,8 @@ nav_order: 5
 | Status text | Copy warning/error message | Only active when a warning or error is being shown |
 | `UNDO / REDO` | History navigation | Buttons in the header |
 | `PANIC` | Kill active voices immediately | Also stops lazy chop |
-| `FILES` | Toggle the built-in sample browser side panel | See [Sample browser]({% link interface.md %}#sample-browser) |
-| `SET` | Theme, scale, and NRPN popup | Theme chooser, `+/- 0.25` scale, and NRPN settings |
+| `FILES` | Toggle the built-in sample browser side panel | See [Sample browser]({{ site.baseurl }}{% link interface.md %}#sample-browser) |
+| `SET` | Theme, scale, NRPN, middle-C, and stem-separation popup | See [NRPN MIDI routing]({{ site.baseurl }}{% link nrpn-midi.md %}#set-button--nrpn-settings) and the [Settings file]({{ site.baseurl }}{% link settings-file.md %}) reference for what gets persisted |
 
 ## Signal chain bar
 
@@ -62,13 +63,13 @@ Time/Pitch notes:
 | `ON` | Enable/disable the filter | Per-voice filter toggle |
 | `TYPE` | Filter mode | `LP`, `HP`, `BP`, `NT` |
 | `SLOPE` | Filter steepness | `12 dB` or `24 dB` |
-| `CUT` | Base cutoff frequency | Displayed in Hz |
-| `RESO` | Resonance amount | Higher values emphasize the cutoff region |
-| `DRIVE` | Pre-filter saturation | Adds harmonics before filtering |
-| `ASYM` | Drive asymmetry | Biases waveshaper toward even harmonics for a warmer tone |
-| `KEY` | Key tracking amount | `0-100%`, relative to the slice/root note mapping |
-| `ATK / DEC / SUS / REL` | Filter envelope shape | Separate from the amp envelope |
-| `AMT` | Filter envelope depth | Bipolar semitone offset (`st`) applied to cutoff |
+| `CUT` | Base cutoff frequency | `20 Hz – 20 kHz`, log-skewed at 1 kHz |
+| `RESO` | Resonance amount | `0–100%`. Higher values emphasize the cutoff region |
+| `DRIVE` | Pre-filter saturation | `0–100 dB`. Adds harmonics before filtering |
+| `ASYM` | Drive asymmetry | `0–100%`. Biases waveshaper toward even harmonics for a warmer tone |
+| `KEY` | Key tracking amount | `0–100%`, relative to the slice/root note mapping |
+| `ATK / DEC / SUS / REL` | Filter envelope shape | A/D/R `0–10000 ms`, S `0–100%`. Separate from the amp envelope |
+| `AMT` | Filter envelope depth | `−96 to +96 st`. Bipolar semitone offset applied to cutoff |
 
 Filter notes:
 - Start with `ON`, `TYPE=LP`, modest `RESO`, and a lower `CUT` to hear the filter clearly.
@@ -82,9 +83,9 @@ Filter notes:
 
 | Control | Function | Notes |
 | --- | --- | --- |
-| `ATK / DEC / SUS / REL` | Amp envelope | Standard ADSR for voice level |
+| `ATK / DEC / SUS / REL` | Amp envelope | ATK `0–1000 ms`, DEC/REL `0–5000 ms`, SUS `0–100%` |
 | `TAIL` | Release-tail toggle | Allows playback to continue past slice boundary during release |
-| `GAIN` | Output gain | `-100` to `+24 dB` |
+| `GAIN` | Output gain | `−100` to `+24 dB` |
 
 ### Playback module
 
@@ -93,10 +94,20 @@ Filter notes:
 | `REV` | Reverse playback | Toggle |
 | `LOOP` | Loop mode | `OFF`, `LOOP`, `PP` |
 | `FADE` | Loop crossfade amount | Active when `LOOP` is `LOOP` or `PP` |
-| `MUTE` | Mute group | Voices in the same group choke each other |
+| `MUTE` | Mute group | `0–32`, `0` = off. Voices in the same group choke each other |
 | `1SHOT` | One-shot playback | Ignores note-off until the slice ends |
 | `OUT` | Output bus | `SLICE` mode only, `1` to `16` |
-| `VOICES` | Max playable voices | `GLOBAL` mode only, `1` to `31` |
+| `VOICES` | Max playable voices | `GLOBAL` mode only, `1` to `31` (voice 32 is reserved for the preview voice) |
+
+## Master and global controls
+
+These live outside the four signal-chain modules but are exposed as APVTS parameters for DAW automation. See the [Parameter reference]({{ site.baseurl }}{% link parameter-reference.md %}) for the full list.
+
+| Parameter | Function | Range / values |
+| --- | --- | --- |
+| `masterVolume` | Master output gain | `−100` to `+24 dB` |
+| `maxVoices` | Active voice limit (same as `VOICES` above) | `1` to `31` |
+| `uiScale` | Editor scaling factor | `0.5` to `3.0`, step `0.25`. Edit via **SET → Scale Up / Scale Down**. |
 
 ## Action bar
 

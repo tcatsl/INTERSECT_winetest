@@ -1,27 +1,101 @@
 ---
-title: Workflow basics
-nav_order: 3
+title: Concepts
+nav_order: 4
+description: "The mental model behind INTERSECT — sessions, slices, the inheritance/lock system, time/pitch algorithms, filter, and playback."
 ---
 
-# Workflow basics
+# Concepts
 
-1. **Multi-sample session:** INTERSECT can load and concatenate multiple audio files per instance (`.wav`, `.ogg`, `.aiff`, `.flac`, `.mp3`). The `FILES` button in the header toggles a built-in sample browser side panel; loading from the browser (or drag-and-drop) into an empty session replaces it, and loading while a sample is already loaded appends.
-2. **Current editor layout:** header bar, sample lane, slice lane, waveform, time/zoom bar, action bar, and bottom signal-chain editor.
-3. **Slice creation:** draw slices manually, chop live with **LAZY**, or split a selected slice via **AUTO**.
-4. **Inheritance model:** `GLOBAL` in the Signal Chain edits sample defaults. `SLICE` edits the selected slice and locks fields that diverge from the global value.
-5. **Playback model:** MIDI triggers slices by note mapping. A slice belongs to one loaded sample, but playback and editing happen on the concatenated session timeline. A slice can respond to one note or a `LOW`-to-`HIGH` range, with `ROOT` defining the transposition center for that slice. Mute groups can choke voices in the same group.
-6. **Algorithms:**
-   - `Repitch`: pitch and speed are linked. `MODE` switches the playback interpolation between `Linear` and `Cubic`.
-   - `Signalsmith`: independent time/pitch via Signalsmith Stretch (`TONAL`, `FMNT`, `FMNT C`).
-   - `Bungee`: granular stretch mode with `GRAIN` choices (`Fast`, `Normal`, `Smooth`).
-7. **Repitch + Stretch interaction:** when `ALGO=Repitch` and `STRETCH=ON`, `PITCH` and `TUNE` become BPM-driven read-only displays.
-8. **SET BPM:** available in the Time/Pitch module for both `GLOBAL` and `SLICE`; it calculates BPM from musical duration.
-9. **Filter model:** the filter is per-voice and resolves its settings at note-on. Cutoff changes affect newly triggered notes immediately, but do not retarget voices that are already playing.
-10. **Filter envelope amount:** `AMT` is measured in semitones, so `+12 st` means the envelope can push cutoff up by one octave and `-12 st` means one octave down. This stays consistent across low and high base cutoff values.
-11. **Key tracking:** `KEY` is a percentage of note tracking. `0%` ignores note pitch, `100%` makes cutoff follow pitch at full keyboard scaling, and intermediate values blend between them. In slice range mode, tracking follows the slice `ROOT` note.
-12. **Drive:** `DRIVE` is pre-filter saturation. It adds harmonics before the filter rather than simply turning the signal up.
-13. **Drive asymmetry:** `ASYM` biases the drive waveshaper to produce even-harmonic saturation, adding a warmer, tube-like character. A DC blocker engages automatically when asymmetry is above zero.
-14. **Loop crossfade:** `FADE` smooths loop and ping-pong seams with equal-power crossfading. It is active only when `LOOP` is not `OFF`.
-15. **Load behavior:** file decoding/loading is asynchronous (off the audio thread).
-16. **Undo/redo:** snapshot-based history for slice and parameter edits.
-17. **MIDI host stop handling:** responds to `All Notes Off (CC 123)` and `All Sound Off (CC 120)`.
+This page explains the core ideas behind INTERSECT. For a hands-on first session, see [Getting started]({{ site.baseurl }}{% link getting-started.md %}). For per-control details, see [Controls and shortcuts]({{ site.baseurl }}{% link controls-reference.md %}).
+
+## Sessions and samples
+
+An INTERSECT instance loads **one or many samples** into a session. The first sample replaces an empty session and resets zoom/scroll; subsequent loads append. Files may be `.wav`, `.ogg`, `.aiff`, `.flac`, or `.mp3`.
+
+Loading happens off the audio thread — even a multi-minute file won't drop audio. Files saved at a different sample rate from the project are automatically resampled on load.
+
+You can drag samples directly onto the waveform, or open the built-in sample browser with the `FILES` button in the header bar (right-click a folder in the browser to bookmark it).
+
+## Slices
+
+A **slice** is a region of one sample with a MIDI mapping and its own parameter overrides. Slices are created manually — INTERSECT never auto-slices on load. Three creation methods:
+
+- **Draw** — press `ADD` (`Shift + A`) and drag on the waveform.
+- **Lazy chop** — press `LAZY` (`Shift + Z`) and play MIDI notes; each note-on drops a slice boundary at the current playhead. Stopping closes the last boundary at the sample's end.
+- **Auto chop** — select an existing slice and press `AUTO` (`Shift + C`) to split it equally (`SPLIT EQUAL`) or at detected transients (`SPLIT TRANSIENTS`).
+
+Each slice is mapped to a MIDI note. By default the first slice gets C2 (note 36) and subsequent slices receive successive notes. `RESEQ` rewrites those mappings either left-to-right (`BY POSITION`) or by creation order (`AS CREATED`).
+
+## Slice note ranges
+
+Each slice can respond to a single MIDI note or a range of notes:
+
+- **Single note** (default): `NOTE` mode. The slice plays only when its assigned note is triggered.
+- **Range**: `RANGE` mode. The slice covers `LOW` through `HIGH`, transposing chromatically relative to a `ROOT` note. Filter key-tracking uses the slice's `ROOT` rather than the global root.
+
+Range mode is what turns INTERSECT from a kit-style slicer into a chromatic instrument. Range transpose is ignored when `ALGO` is `Repitch` with `STRETCH` on — those modes are trigger-zone only.
+
+## The inheritance / lock model
+
+This is INTERSECT's central idea, and it's worth a concrete example.
+
+The signal chain bar at the bottom of the editor has two tabs: `GLOBAL` (sample-wide defaults) and `SLICE` (overrides for the selected slice).
+
+> **Example.** With no slice selected, set `GLOBAL → PITCH` to `+2`. Every slice in the sample now plays at +2 semitones. Now select one slice, click the `SLICE` tab, and drag its `PITCH` to `+7`. The parameter label highlights — that slice has a **lock** on `PITCH`. It plays at +7. All other slices still inherit `+2`.
+>
+> Change `GLOBAL → PITCH` to `0`. The locked slice still plays at `+7`; everything else now plays at `0`.
+>
+> Right-click the locked `PITCH` value (or click the highlighted parameter label) to clear the lock. The slice re-inherits the global default.
+
+This applies to almost every signal-chain parameter, plus per-slice settings like output bus, mute group, and loop mode. The result is that defaults are cheap to set globally, but anything can be locked when a slice needs to differ.
+
+## Time and pitch algorithms
+
+INTERSECT ships three time/pitch engines. Pick one per sample with `ALGO`.
+
+| Algorithm | Independent time & pitch? | Best for | Notable controls |
+| --- | --- | --- | --- |
+| **Repitch** | No (speed and pitch linked) | Pitched material where the natural time-shift sound is wanted | `MODE` (`Linear` or `Cubic` interpolation) |
+| **Signalsmith** | Yes | Transient-rich, full-mix material | `TONAL`, `FMNT`, `FMNT C` |
+| **Bungee** | Yes (granular) | Sustained tones; choose `GRAIN` per material | `GRAIN` (`Fast` / `Normal` / `Smooth`) |
+
+**`STRETCH` and `ALGO=Repitch`:** when you enable `STRETCH` on a Repitch sample, `PITCH` and `TUNE` become BPM-derived read-only displays — the engine is now computing pitch from the DAW BPM ÷ slice BPM ratio. Switch to Signalsmith or Bungee if you want independent pitch control while stretched.
+
+## SET BPM
+
+`SET BPM` (in the Time/Pitch module) calculates the sample's BPM from a musical duration. Pick "1 bar", "1/4 note", "1/8 note", and so on; the engine computes BPM from the selected slice's length and auto-locks the BPM value. This is the workflow when you know "this loop is 2 bars" but don't know the exact tempo.
+
+Available in both `GLOBAL` and `SLICE` scope.
+
+## Filter
+
+The filter is **per-voice** and resolves its settings at **note-on**. Three implications:
+
+- Live cutoff edits affect the next triggered note, not the currently sounding voice. Automate via note-on events, not mid-note CC sweeps.
+- Different slices can have wildly different filter settings without affecting each other.
+- The filter envelope is independent from the amp envelope; you can have a fast amp attack with a slow filter sweep.
+
+A few notable parameters:
+
+- **`AMT` is in semitones**, not Hz. `+12 st` means the envelope can push cutoff up by one octave; `-12 st` halves it. This stays consistent across base cutoff values.
+- **`KEY` is a percentage** of note tracking. `100%` means cutoff fully follows pitch; `50%` is the conventional "track halfway"; `0%` ignores pitch. In slice range mode, tracking uses the slice's `ROOT` note.
+- **`DRIVE` is pre-filter saturation** — it adds harmonics before the filter, so it has tonal character beyond simple gain. **`ASYM`** biases the waveshaper toward even harmonics for a warmer, tube-like tone. When `ASYM > 0`, a one-pole DC blocker engages automatically.
+
+## Playback
+
+- **Loop crossfade (`FADE`)** smooths loop and ping-pong seams with an equal-power crossfade. Active only when `LOOP` is not `Off`. Start at 5–10% for short loops, more for long loops.
+- **`1SHOT`** ignores normal note-off — the slice plays through to the end. A host-level "all notes off" still kills it.
+- **`REV`** plays the slice backwards. Combine with `LOOP=Ping-Pong` for a back-and-forth pattern.
+- **Mute groups** let voices in the same group choke each other (newest wins). Group `0` disables choking. Useful for hi-hat open/closed style pairs.
+
+## Voices and output
+
+INTERSECT has **32 voice slots: 31 playable plus one reserved preview voice** for sample auditioning and lazy chop. When all playable voices are in use, the engine steals the voice whose amp envelope is at the lowest level.
+
+`OUT` (in `SLICE` mode) routes a slice to one of 16 stereo output buses. The main bus (bus 1) is always active; additional buses must be enabled in your DAW's plugin bus layout.
+
+## Undo, redo, MIDI panic
+
+- **Undo/redo** captures snapshots before any change, including drag gestures. Multi-step drags coalesce into a single undo step.
+- **`PANIC`** kills all active voices and stops lazy chop immediately.
+- **Host stop** — INTERSECT responds to `All Notes Off` (CC 123) and `All Sound Off` (CC 120). If your DAW doesn't send those on stop, use `PANIC`.
