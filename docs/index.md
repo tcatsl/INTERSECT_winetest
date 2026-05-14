@@ -10,7 +10,7 @@ permalink: /
 
 INTERSECT is a sample slicer instrument plugin for VST3, AU, and Standalone. Load one or many audio files into a session, chop them into slices, and trigger each slice from MIDI. Slices inherit sample-wide defaults but can lock any parameter — pitch, filter, envelope, loop, output bus — to override that default per slice. Three time/pitch engines (Repitch, Signalsmith, Bungee) give you independent control over speed and pitch, and on-demand GPU-accelerated stem separation lets you split a sample into drums, bass, vocals, and other parts without leaving the plugin.
 
-![INTERSECT screenshot](https://raw.githubusercontent.com/tucktuckg00se/INTERSECT/main/.github/assets/screenshot.png)
+![INTERSECT screenshot](https://raw.githubusercontent.com/tucktuckg00se/INTERSECT/master/.github/assets/screenshot.png)
 *Theme shown: Open Color (`oc.intersectstyle`)*
 
 [Watch the Quick Start Guide on YouTube](https://youtu.be/zsdtyIff2PQ){: .btn .btn-primary }
