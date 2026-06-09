@@ -1,3 +1,21 @@
+JUCE update fixes UI in WINE
+
+before:
+
+<div align="center">
+
+![Screenshot](.github/assets/before.png)
+
+</div>
+
+*after:*
+
+<div align="center">
+
+![Screenshot](.github/assets/after.png)
+
+</div>
+
 # INTERSECT
 
 **Full documentation:** <https://tucktuckg00se.github.io/INTERSECT/>
